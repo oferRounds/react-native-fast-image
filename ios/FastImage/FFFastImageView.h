@@ -1,14 +1,12 @@
 #import <UIKit/UIKit.h>
 
-#import <SDWebImage/SDAnimatedImageView+WebCache.h>
-#import <SDWebImage/SDWebImageDownloader.h>
-
 #import <React/RCTComponent.h>
 #import <React/RCTResizeMode.h>
+#import <PINRemoteImage/PINAnimatedImageView.h>
 
 #import "FFFastImageSource.h"
 
-@interface FFFastImageView : SDAnimatedImageView
+@interface FFFastImageView : PINAnimatedImageView
 
 @property (nonatomic, copy) RCTDirectEventBlock onFastImageLoadStart;
 @property (nonatomic, copy) RCTDirectEventBlock onFastImageProgress;

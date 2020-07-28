@@ -1,5 +1,8 @@
 #import "FFFastImageView.h"
-#import <SDWebImage/UIImage+MultiFormat.h>
+#import <PINRemoteImage/PINRemoteImageManager.h>
+#import <PINRemoteImage/PINImageView+PINRemoteImage.h>
+
+
 
 @interface FFFastImageView()
 
@@ -19,6 +22,7 @@
     self = [super init];
     self.resizeMode = RCTResizeModeCover;
     self.clipsToBounds = YES;
+
     return self;
 }
 
@@ -125,8 +129,7 @@
             } {
                 self.hasSentOnLoadStart = NO;
             }
-            // Use SDWebImage API to support external format like WebP images
-            UIImage *image = [UIImage sd_imageWithData:[NSData dataWithContentsOfURL:_source.url]];
+            UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:_source.url]];
             [self setImage:image];
             if (self.onFastImageProgress) {
                 self.onFastImageProgress(@{
@@ -144,41 +147,6 @@
         }
         
         // Set headers.
-        NSDictionary *headers = _source.headers;
-        SDWebImageDownloaderRequestModifier *requestModifier = [SDWebImageDownloaderRequestModifier requestModifierWithBlock:^NSURLRequest * _Nullable(NSURLRequest * _Nonnull request) {
-            NSMutableURLRequest *mutableRequest = [request mutableCopy];
-            for (NSString *header in headers) {
-                NSString *value = headers[header];
-                [mutableRequest setValue:value forHTTPHeaderField:header];
-            }
-            return [mutableRequest copy];
-        }];
-        SDWebImageContext *context = @{SDWebImageContextDownloadRequestModifier : requestModifier};
-        
-        // Set priority.
-        SDWebImageOptions options = SDWebImageRetryFailed | SDWebImageHandleCookies;
-        switch (_source.priority) {
-            case FFFPriorityLow:
-                options |= SDWebImageLowPriority;
-                break;
-            case FFFPriorityNormal:
-                // Priority is normal by default.
-                break;
-            case FFFPriorityHigh:
-                options |= SDWebImageHighPriority;
-                break;
-        }
-        
-        switch (_source.cacheControl) {
-            case FFFCacheControlWeb:
-                options |= SDWebImageRefreshCached;
-                break;
-            case FFFCacheControlCacheOnly:
-                options |= SDWebImageFromCacheOnly;
-                break;
-            case FFFCacheControlImmutable:
-                break;
-        }
         
         if (self.onFastImageLoadStart) {
             self.onFastImageLoadStart(@{});
@@ -189,43 +157,31 @@
         self.hasCompleted = NO;
         self.hasErrored = NO;
         
-        [self downloadImage:_source options:options context:context];
+        [self downloadImage:_source];
     }
 }
 
-- (void)downloadImage:(FFFastImageSource *) source options:(SDWebImageOptions) options context:(SDWebImageContext *)context {
+- (void)downloadImage:(FFFastImageSource *) source {
     __weak typeof(self) weakSelf = self; // Always use a weak reference to self in blocks
-    [self sd_setImageWithURL:_source.url
-            placeholderImage:nil
-                     options:options
-                     context:context
-                    progress:^(NSInteger receivedSize, NSInteger expectedSize, NSURL * _Nullable targetURL) {
-                        if (weakSelf.onFastImageProgress) {
-                            weakSelf.onFastImageProgress(@{
-                                                           @"loaded": @(receivedSize),
-                                                           @"total": @(expectedSize)
-                                                           });
+    
+    self.pin_updateWithProgress = YES;
+    [self pin_setImageFromURL:source.url completion:^(PINRemoteImageManagerResult * _Nonnull result) {
+        if (result.error) {
+                        weakSelf.hasErrored = YES;
+                        if (weakSelf.onFastImageError) {
+                            weakSelf.onFastImageError(@{});
                         }
-                    } completed:^(UIImage * _Nullable image,
-                                  NSError * _Nullable error,
-                                  SDImageCacheType cacheType,
-                                  NSURL * _Nullable imageURL) {
-                        if (error) {
-                            weakSelf.hasErrored = YES;
-                                if (weakSelf.onFastImageError) {
-                                    weakSelf.onFastImageError(@{});
-                                }
-                                if (weakSelf.onFastImageLoadEnd) {
-                                    weakSelf.onFastImageLoadEnd(@{});
-                                }
-                        } else {
-                            weakSelf.hasCompleted = YES;
-                            [weakSelf sendOnLoad:image];
-                            if (weakSelf.onFastImageLoadEnd) {
-                                weakSelf.onFastImageLoadEnd(@{});
-                            }
+                        if (weakSelf.onFastImageLoadEnd) {
+                            weakSelf.onFastImageLoadEnd(@{});
                         }
-                    }];
+                    } else {
+                        weakSelf.hasCompleted = YES;
+                        [weakSelf sendOnLoad:result.image];
+                        if (weakSelf.onFastImageLoadEnd) {
+                            weakSelf.onFastImageLoadEnd(@{});
+                        }
+                    }
+    }];
 }
 
 @end
