@@ -16,5 +16,5 @@ Pod::Spec.new do |s|
   s.source_files  = "ios/**/*.{h,m}"
 
   s.dependency 'React'
-  s.dependency 'PINRemoteImage', '~> 3.0.1'
+  s.dependency 'PINRemoteImage', '~> 3.0.0'
 end
